@@ -29,8 +29,12 @@
   by default, the script does a Check of the installed firmware. The -Update switch enables the script to execute
   a firmware update if one is needed
 
+ .Parameter Hoteling [Switch]
+  when docks are used in hoteling desks, this option asks the user to allow the dock firmware update
+
  .ChangeLog
   2023.04.07 - First GitHub Release as DockUpdater.ps1
+  2023.06.09 - added -Hoteling option to ask user permission to update dock
 
  .Notes
   This will create a transcription log IFF the dock is attached and it starts the process to test firmware.  If no dock is detected, no logging is created.
@@ -51,10 +55,11 @@ param(
     [Parameter(Mandatory = $false)][ValidateSet('NonInteractive', 'Silent')][String]$UIExperience,
     [switch]$BypassHPCMSL,
     [switch]$Update,
+    [switch]$Hoteling,
     [switch]$DebugOut
 ) # param
 
-$ScriptVersion = 'DockUpdater.ps1: 01.00.10 June 07, 2023'
+$ScriptVersion = 'DockUpdater.ps1: 01.00.11 June 09, 2023'
 
 # check for CMSL by attempting to run one command
 Try {
@@ -129,6 +134,14 @@ function Get-PackageVersion {
     }
     return $InstalledVersion
 } # function Get-PackageVersion
+
+Function Ask_YesNo {
+    [CmdletBinding()]param( $pTitle, $pContent )
+    Add-Type -AssemblyName PresentationFramework
+    Add-Type -AssemblyName System.Windows.Forms
+    $lResponse = [System.Windows.MessageBox]::Show($pContent,$pTitle,'YesNo')
+    return $lResponse
+}
 
 #########################################################################################
 
@@ -222,6 +235,7 @@ if ( $Dock.Dock_Attached -eq 0 ) {
             Write-Host "  Extracting to $ExtractPath" -ForegroundColor Magenta
             if ( $AdminRights ) {
                 $Extract = Start-Process -FilePath $OutFilePath\$SPEXE -ArgumentList "/s /e /f $ExtractPath" -NoNewWindow -PassThru -Wait
+                write-Host " Softpaq extract returned: $($Extract)"
             } else {
                 Write-Host "  Admin rights required to extract to $ExtractPath" -ForegroundColor Red
                 Stop-Transcript
@@ -274,7 +288,7 @@ if ( $Dock.Dock_Attached -eq 0 ) {
         }
         switch ( $HPFirmwareTest.ExitCode ) {
             0   { 
-                    Write-Host " Firmware is up to date" -ForegroundColor Green
+                     Write-Host " Firmware is up to date" -ForegroundColor Green
                     $InstalledVersion = Get-PackageVersion $Dock.Dock_Attached $VersionFile
                     Write-Host " Installed Version: $InstalledVersion" -ForegroundColor Green
                 } # 0
@@ -289,15 +303,22 @@ if ( $Dock.Dock_Attached -eq 0 ) {
                     Write-Host " Installed Version: $InstalledVersion" -ForegroundColor Yellow
 
                     if ( $Update ) {
-                        Write-Host " Starting Dock Firmware Update" -ForegroundColor Magenta
-                        $HPFirmwareUpdate = Start-Process -FilePath "$OutFilePath\$SPNumber\HPFirmwareInstaller.exe" -ArgumentList "$mode" -PassThru -Wait -NoNewWindow
-                        $ExitInfo = $HPFIrmwareUpdateReturnValues | Where-Object { $_.Code -eq $HPFirmwareUpdate.ExitCode }
-                        if ($ExitInfo.Code -eq "0"){
-                            Write-Host " Update Successful!" -ForegroundColor Green
+                        $YN = 'Yes'             # default when -Hoteling option not used
+                        if ( $Hoteling ) {      # let's ask user to run update now
+                            $YN = Ask_YesNo 'Dock firmware Version Check' 'The connected dock requires an important firmware update. Update now?' 
+                        }
+                        if ( $YN -eq 'Yes' ) {
+                            Write-Host " Starting Dock Firmware Update" -ForegroundColor Magenta
+                            $HPFirmwareUpdate = Start-Process -FilePath "$OutFilePath\$SPNumber\HPFirmwareInstaller.exe" -ArgumentList "$mode" -PassThru -Wait -NoNewWindow
+                            $ExitInfo = $HPFIrmwareUpdateReturnValues | Where-Object { $_.Code -eq $HPFirmwareUpdate.ExitCode }
+                            if ($ExitInfo.Code -eq "0"){
+                                Write-Host " Update Successful!" -ForegroundColor Green
+                            } else {
+                                Write-Host " Update Failed!" -ForegroundColor Red
+                                Write-Host " Exit Code: $($ExitInfo.Code): $($ExitInfo.Message)" -ForegroundColor Gray
+                            }                            
                         } else {
-                            Write-Host " Update Failed" -ForegroundColor Red
-                            Write-Host " Exit Code: $($ExitInfo.Code)" -ForegroundColor Gray
-                            Write-Host " $($ExitInfo.Message)" -ForegroundColor Gray
+                            Write-Host " Update Prevented by User" -ForegroundColor Yellow
                         }
                     } # if ( $Update )
                 } # 105
