@@ -59,7 +59,7 @@ param(
     [switch]$DebugOut
 ) # param
 
-$ScriptVersion = 'DockUpdater.ps1: 01.00.11 June 09, 2023'
+$ScriptVersion = 'DockUpdater.ps1: 01.00.12 June 29, 2023'
 
 # check for CMSL by attempting to run one command
 Try {
@@ -79,7 +79,7 @@ function Get-HPDockInfo {
     [CmdletBinding()]
     param($pPnpSignedDrivers)
 
-    # **** Hardcode URLs in case of no CMSL installed ****
+    # **** Hardcode URLs in case of no CMSL used (so can't query for latest update) ****
     # ---- current supported accessories with script ----
     $Url_TBG2 = 'ftp.hp.com/pub/softpaq/sp143501-144000/sp143977.exe'   #  (as of apr 6, 2023)
     $Url_TBG4 = 'ftp.hp.com/pub/softpaq/sp143501-144000/sp143669.exe'   #  (as of apr 6, 2023)
@@ -90,6 +90,7 @@ function Get-HPDockInfo {
     $Url_E24dG4 = 'ftp.hp.com/pub/softpaq/sp145501-146000/sp145577.exe'  #  (as of Jun 1, 2023)
     $Url_E27dG4 = 'ftp.hp.com/pub/softpaq/sp145501-146000/sp145576.exe'  #  (as of Jun 1, 2023)
     $Url_Z40cG3 = 'ftp.hp.com/pub/softpaq/sp143501-144000/sp143685.exe'  #  (as of Jun 1, 2023)
+    $Url_EOPOCI = 'ftp.hp.com/pub/softpaq/sp144501-145000/sp144902.exe' # (as of June 15, 2023)
 
     #######################################################################################
     $Dock_Attached = 0      # default: no dock found
@@ -110,6 +111,9 @@ function Get-HPDockInfo {
                 '*PID_016E*' { $Dock_Attached = 8 ; $Dock_ProductName = 'HP E27d G4 QHD Docking Monitor' ; $Dock_Url = $Url_E27dG4 }
                 '*PID_379D*' { $Dock_Attached = 9 ; $Dock_ProductName = 'HP USB-C G5 Essential Dock' ; $Dock_Url =  $Url_EssG5 }
                 '*PID_0F84*' { $Dock_Attached = 10 ; $Dock_ProductName = 'HP Z40c G3 WUHD Curved Display' ; $Dock_Url =  $Url_Z40cG3 }
+                '*PID_0380*' { $Dock_Attached = 11 ; $Dock_ProdcutName = 'HP Engage One Pro Stand Hub' ; $Dock_Url = $Url_EOPOCI }
+                '*PID_0381*' { $Dock_Attached = 12 ; $Dock_ProdcutName = 'HP Engage One Pro VESA Hub' ; $Dock_Url = $Url_EOPOCI }
+                '*PID_0480*' { $Dock_Attached = 13 ; $Dock_ProdcutName = 'HP Engage One Pro Advanced Fanless Hub' ; $Dock_Url = $Url_EOPOCI }
             } # switch -Wildcard ( $f_InstalledDeviceID )
         } # if ( $f_InstalledDeviceID -match "VID_03F0")
         if ( $Dock_Attached -gt 0 ) { break }
@@ -235,7 +239,7 @@ if ( $Dock.Dock_Attached -eq 0 ) {
             Write-Host "  Extracting to $ExtractPath" -ForegroundColor Magenta
             if ( $AdminRights ) {
                 $Extract = Start-Process -FilePath $OutFilePath\$SPEXE -ArgumentList "/s /e /f $ExtractPath" -NoNewWindow -PassThru -Wait
-                write-Host " Softpaq extract returned: $($Extract)"
+                write-Host " Softpaq extract returned: $($Extract.ExitCode)"
             } else {
                 Write-Host "  Admin rights required to extract to $ExtractPath" -ForegroundColor Red
                 Stop-Transcript
@@ -341,5 +345,8 @@ if ( $Dock.Dock_Attached -eq 0 ) {
     8 - 'HP E27d G4 QHD Docking Monitor'- VID_03F0&PID_016E
     9 - 'HP USB-C G5 Essential Dock' - VID_03F0&PID_379D
     10 - 'HP Z40c G3 WUHD Curved Display'
+    11 - 'HP Engage One Pro Stand Hub' - VID_03F0&PID_0380
+    12 - 'HP Engage One Pro VESA Hub' - VID_03F0&PID_0381
+    13 - 'HP Engage One Pro Advanced Fanless Hub' - VID_03F0&PID_0480
 #>
 return $Dock.Dock_Attached
