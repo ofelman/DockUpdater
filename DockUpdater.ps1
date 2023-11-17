@@ -121,7 +121,7 @@ function Get-HPDockInfo {
     #######################################################################################
 
     return @(
-        @{Dock_Attached = $Dock_Attached ;  Dock_ProductName = $Dock_ProductName  ;  Dock_Url = $Dock_Url}
+        @{Dock_Attached = $Dock_Attached ;  $Dock_ProductName = $Dock_ProductName  ;  Dock_Url = $Dock_Url}
     )
 } # function Get-HPDockInfo
 
